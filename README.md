@@ -12,6 +12,7 @@ cargo run
 - Press `space` to pause/unpause.
 - Press `mouse left` to spawn a cell.
 - Press `mouse right` to kill a cell.
+- Press `e` to erase the world.
 
 <h1 align="center">
 	<br>
