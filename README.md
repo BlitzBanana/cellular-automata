@@ -1,4 +1,4 @@
-# RUST -Cellular Automata
+# RUST - Cellular Automata
 
 > I'm a rust noob and i'm doing this kind of project to learn.
 
