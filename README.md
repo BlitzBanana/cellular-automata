@@ -1,4 +1,4 @@
-# Rust - Cellular Automata <img src=".github/ferris.png" title="Cellular Ferris" width="30" height="22">
+# Rust - Cellular Automata <img src=".github/ferris.png" title="Cellular Ferris" width="42" height="22">
 
 > I'm a rust noob and i'm doing this kind of project to learn.
 
