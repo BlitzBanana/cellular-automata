@@ -63,8 +63,6 @@ struct Cell {
 }
 
 pub struct World {
-    pub width: usize,
-    pub height: usize,
     pub paused: bool,
     cells: Vec<Cell>,
 }
@@ -87,8 +85,6 @@ fn neighbours_indexes(i: usize, width: usize, height: usize) -> [usize; 8] {
 impl World {
     pub fn new(width: usize, height: usize) -> Self {
         Self {
-            width,
-            height,
             paused: true,
             cells: (0..(width * height))
                 .map(|index| Cell {
