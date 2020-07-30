@@ -1,56 +1,64 @@
 use rayon::prelude::*;
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Position {
-    pub x: usize,
-    pub y: usize,
-}
-
-impl Position {
-    fn from_index(index: usize, width: usize) -> Self {
-        Position {
-            x: index % width,
-            y: index / width,
-        }
+pub mod utils {
+    pub fn coords_to_index(x: usize, y: usize, width: usize) -> usize {
+        y * width + x
     }
 
-    pub fn to_index(&self, width: usize) -> usize {
-        self.y * width + self.x
-    }
-
-    fn left(&self, width: usize) -> Position {
-        let x = self.x.checked_sub(1).unwrap_or(width - 1);
-        Position { x, y: self.y }
-    }
-
-    fn right(&self, width: usize) -> Position {
-        let x = self.x.checked_add(1).filter(|&v| v < width).unwrap_or(0);
-        Position { x, y: self.y }
-    }
-
-    fn top(&self, height: usize) -> Position {
-        let y = self.y.checked_sub(1).unwrap_or(height - 1);
-        Position { x: self.x, y }
-    }
-
-    fn bottom(&self, height: usize) -> Position {
-        let y = self.y.checked_add(1).filter(|&v| v < height).unwrap_or(0);
-        Position { x: self.x, y }
+    pub fn index_to_coords(index: usize, width: usize) -> (usize, usize) {
+        (index % width, index / width)
     }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum CellState {
+pub enum State {
     IMMUTABLE,
     ALIVE,
     DEAD,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
+struct Position {
+    pub x: usize,
+    pub y: usize,
+}
+
+impl Position {
+    fn to_index(&self, width: usize) -> usize {
+        utils::coords_to_index(self.x, self.y, width)
+    }
+
+    fn from_index(index: usize, width: usize) -> Self {
+        let (x, y) = utils::index_to_coords(index, width);
+        Self { x, y }
+    }
+
+    fn left(&self, width: usize) -> Self {
+        let x = self.x.checked_sub(1).unwrap_or(width - 1);
+        Self { x, y: self.y }
+    }
+
+    fn right(&self, width: usize) -> Self {
+        let x = self.x.checked_add(1).filter(|&v| v < width).unwrap_or(0);
+        Self { x, y: self.y }
+    }
+
+    fn top(&self, height: usize) -> Self {
+        let y = self.y.checked_sub(1).unwrap_or(height - 1);
+        Self { x: self.x, y }
+    }
+
+    fn bottom(&self, height: usize) -> Self {
+        let y = self.y.checked_add(1).filter(|&v| v < height).unwrap_or(0);
+        Self { x: self.x, y }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 struct Cell {
     index: usize,
     position: Position,
-    state: CellState,
+    state: State,
     neighbours_indexes: [usize; 8],
 }
 
@@ -78,24 +86,22 @@ fn neighbours_indexes(i: usize, width: usize, height: usize) -> [usize; 8] {
 
 impl World {
     pub fn new(width: usize, height: usize) -> Self {
-        let cells: Vec<Cell> = (0..(width * height))
-            .map(|index| Cell {
-                index,
-                position: Position::from_index(index, width),
-                state: CellState::DEAD,
-                neighbours_indexes: neighbours_indexes(index, width, height),
-            })
-            .collect();
-
         Self {
             width,
             height,
-            cells,
             paused: true,
+            cells: (0..(width * height))
+                .map(|index| Cell {
+                    index,
+                    position: Position::from_index(index, width),
+                    state: State::DEAD,
+                    neighbours_indexes: neighbours_indexes(index, width, height),
+                })
+                .collect(),
         }
     }
 
-    pub fn set_cell_state(&mut self, index: usize, state: CellState) {
+    pub fn set_cell_state(&mut self, index: usize, state: State) {
         if let Some(cell) = self.cells.get_mut(index) {
             cell.state = state
         };
@@ -113,22 +119,22 @@ impl World {
             .par_iter()
             .map(|&cell| {
                 match cell.state {
-                    CellState::IMMUTABLE => cell,
-                    CellState::ALIVE | CellState::DEAD => {
+                    State::IMMUTABLE => cell,
+                    State::ALIVE | State::DEAD => {
                         let alive_neighbours = cell
                             .neighbours_indexes
                             .iter()
                             .map(|&index| self.cells[index])
-                            .filter(|cell| cell.state == CellState::ALIVE)
+                            .filter(|cell| cell.state == State::ALIVE)
                             .count();
 
                         // Let's update cell state :D (conway's rules here)
                         let new_state = if alive_neighbours == 2 {
                             cell.state
                         } else if alive_neighbours == 3 {
-                            CellState::ALIVE
+                            State::ALIVE
                         } else {
-                            CellState::DEAD
+                            State::DEAD
                         };
 
                         Cell {
@@ -147,9 +153,9 @@ impl World {
     pub fn draw(&self, frame: &mut [u8]) {
         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
             let rgba: [u8; 4] = match self.cells[i].state {
-                CellState::IMMUTABLE => [0xFF, 0x0, 0x4D, 0xFF],
-                CellState::ALIVE => [0x1E, 0x1E, 0x1E, 0xFF],
-                CellState::DEAD => [0xF8, 0xF8, 0xF8, 0xF8],
+                State::IMMUTABLE => [0xFF, 0x0, 0x4D, 0xFF],
+                State::ALIVE => [0x1E, 0x1E, 0x1E, 0xFF],
+                State::DEAD => [0xF8, 0xF8, 0xF8, 0xF8],
             };
 
             pixel.copy_from_slice(&rgba);
