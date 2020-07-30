@@ -51,6 +51,7 @@ struct Cell {
     index: usize,
     position: Position,
     state: CellState,
+    neighbours_indexes: [usize; 8],
 }
 
 pub struct World {
@@ -60,6 +61,21 @@ pub struct World {
     cells: Vec<Cell>,
 }
 
+fn neighbours_indexes(i: usize, width: usize, height: usize) -> [usize; 8] {
+    let pos = Position::from_index(i, width);
+
+    [
+        pos.top(height).left(width).to_index(width),
+        pos.top(height).to_index(width),
+        pos.top(height).right(width).to_index(width),
+        pos.left(width).to_index(width),
+        pos.right(width).to_index(width),
+        pos.bottom(height).left(width).to_index(width),
+        pos.bottom(height).to_index(width),
+        pos.bottom(height).right(width).to_index(width),
+    ]
+}
+
 impl World {
     pub fn new(width: usize, height: usize) -> Self {
         let cells: Vec<Cell> = (0..(width * height))
@@ -67,6 +83,7 @@ impl World {
                 index,
                 position: Position::from_index(index, width),
                 state: CellState::DEAD,
+                neighbours_indexes: neighbours_indexes(index, width, height),
             })
             .collect();
 
@@ -84,22 +101,6 @@ impl World {
         };
     }
 
-    fn neighbours_indexes(&self, i: usize) -> [usize; 8] {
-        let (width, height) = (self.width, self.height);
-        let cell = self.cells[i];
-
-        [
-            cell.position.top(height).left(width).to_index(width),
-            cell.position.top(height).to_index(width),
-            cell.position.top(height).right(width).to_index(width),
-            cell.position.left(width).to_index(width),
-            cell.position.right(width).to_index(width),
-            cell.position.bottom(height).left(width).to_index(width),
-            cell.position.bottom(height).to_index(width),
-            cell.position.bottom(height).right(width).to_index(width),
-        ]
-    }
-
     pub fn update(&mut self) {
         if self.paused {
             return;
@@ -114,8 +115,8 @@ impl World {
                 match cell.state {
                     CellState::IMMUTABLE => cell,
                     CellState::ALIVE | CellState::DEAD => {
-                        let neighbours_indexes = self.neighbours_indexes(cell.index);
-                        let alive_neighbours = neighbours_indexes
+                        let alive_neighbours = cell
+                            .neighbours_indexes
                             .iter()
                             .map(|&index| self.cells[index])
                             .filter(|cell| cell.state == CellState::ALIVE)
@@ -131,9 +132,8 @@ impl World {
                         };
 
                         Cell {
-                            index: cell.index,
-                            position: cell.position,
                             state: new_state,
+                            ..cell
                         }
                     }
                 }
