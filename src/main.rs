@@ -20,10 +20,10 @@ struct Position {
 }
 
 impl Position {
-    fn from_index(index: usize) -> Self {
+    fn from_index(index: usize, width: usize) -> Self {
         Position {
-            x: index % WIDTH,
-            y: index / WIDTH,
+            x: index % width,
+            y: index / width,
         }
     }
 
@@ -67,15 +67,17 @@ struct Cell {
 }
 
 struct World {
-    cells: Vec<Cell>,
+    width: usize,
+    height: usize,
     paused: bool,
+    cells: Vec<Cell>,
 }
 
 impl World {
-    fn new() -> Self {
-        let cells: Vec<Cell> = (0..(WIDTH * HEIGHT))
+    fn new(width: usize, height: usize) -> Self {
+        let cells: Vec<Cell> = (0..(width * height))
             .map(|index| {
-                let position = Position::from_index(index);
+                let position = Position::from_index(index, width);
                 let state = CellState::DEAD;
 
                 Cell {
@@ -87,6 +89,8 @@ impl World {
             .collect();
 
         Self {
+            width,
+            height,
             cells,
             paused: true,
         }
@@ -98,22 +102,25 @@ impl World {
         };
     }
 
-    fn neighbours_indexes(&self, i: usize) -> Vec<usize> {
+    fn neighbours_indexes(&self, i: usize) -> [usize; 8] {
+        let (width, height) = (self.width, self.height);
         let cell = self.cells[i];
 
-        vec![
-            cell.position.top(HEIGHT).left(WIDTH).to_index(WIDTH),
-            cell.position.top(HEIGHT).to_index(WIDTH),
-            cell.position.top(HEIGHT).right(WIDTH).to_index(WIDTH),
-            cell.position.left(WIDTH).to_index(WIDTH),
-            cell.position.right(WIDTH).to_index(WIDTH),
-            cell.position.bottom(HEIGHT).left(WIDTH).to_index(WIDTH),
-            cell.position.bottom(HEIGHT).to_index(WIDTH),
-            cell.position.bottom(HEIGHT).right(WIDTH).to_index(WIDTH),
+        [
+            cell.position.top(height).left(width).to_index(width),
+            cell.position.top(height).to_index(width),
+            cell.position.top(height).right(width).to_index(width),
+            cell.position.left(width).to_index(width),
+            cell.position.right(width).to_index(width),
+            cell.position.bottom(height).left(width).to_index(width),
+            cell.position.bottom(height).to_index(width),
+            cell.position.bottom(height).right(width).to_index(width),
         ]
     }
 
     fn update(&mut self) {
+        if self.paused { return }
+
         // A cell cannot mutate other cells, only itself
         // This allows us to run the update in parallel (using rayon crate here)
         let new_state: Vec<Cell> = self
@@ -167,12 +174,12 @@ impl World {
     }
 }
 
-fn get_mouse_index(input: &mut WinitInputHelper, pixels: &mut Pixels) -> Option<usize> {
+fn get_mouse_index(input: &mut WinitInputHelper, pixels: &mut Pixels, width: usize) -> Option<usize> {
     input
         .mouse()
         .and_then(|(mx, my)| winit::dpi::PhysicalPosition::new(mx, my).into())
         .and_then(|pos| pixels.window_pos_to_pixel((pos.x, pos.y)).ok())
-        .and_then(|(x, y)| Some(Position { x, y }.to_index(WIDTH)))
+        .and_then(|(x, y)| Some(Position { x, y }.to_index(width)))
 }
 
 fn main() -> Result<(), Error> {
@@ -195,7 +202,7 @@ fn main() -> Result<(), Error> {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, surface);
         Pixels::new(WIDTH as u32, HEIGHT as u32, surface_texture)?
     };
-    let mut world = World::new();
+    let mut world = World::new(WIDTH, HEIGHT);
 
     event_loop.run(move |event, _, control_water_flow| {
         if let Event::RedrawRequested(_) = event {
@@ -221,23 +228,23 @@ fn main() -> Result<(), Error> {
             }
 
             if input.key_pressed(VirtualKeyCode::E) {
-                world = World::new();
+                world = World::new(WIDTH, HEIGHT);
             }
 
             if input.mouse_held(0) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels) {
+                if let Some(index) = get_mouse_index(&mut input, &mut pixels, WIDTH) {
                     world.set_cell_state(index, CellState::ALIVE);
                 }
             }
 
             if input.mouse_held(1) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels) {
+                if let Some(index) = get_mouse_index(&mut input, &mut pixels, WIDTH) {
                     world.set_cell_state(index, CellState::DEAD);
                 }
             }
 
             if input.mouse_held(2) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels) {
+                if let Some(index) = get_mouse_index(&mut input, &mut pixels, WIDTH) {
                     world.set_cell_state(index, CellState::IMMUTABLE);
                 }
             }
@@ -246,10 +253,7 @@ fn main() -> Result<(), Error> {
                 pixels.resize(size.width, size.height);
             }
 
-            if !world.paused {
-                world.update();
-            }
-
+            world.update();
             window.request_redraw();
         }
     });
