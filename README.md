@@ -4,7 +4,7 @@
 
 Basic [Conway's game of life](https://en.wikipedia.org/wiki/Conway%27s_Game_of_Life) rust implementation.
 
-- 1 neighbor -> die (underpolupation)
+- 1 neighbor & less -> die (underpolupation)
 - 2 neighbours -> keep on
 - 3 neighbours -> born
 - 4 neighbours & more -> die (overpolupation)
