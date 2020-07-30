@@ -124,7 +124,7 @@ impl World {
                             .filter(|cell| cell.state == State::ALIVE)
                             .count();
 
-                        // Let's update cell state :D (conway's rules here)
+                        // Let's update cell state :D (Conway's rules here)
                         let new_state = if alive_neighbours == 2 {
                             cell.state
                         } else if alive_neighbours == 3 {

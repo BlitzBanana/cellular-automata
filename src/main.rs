@@ -4,38 +4,40 @@
 use clap::Clap;
 use log::error;
 use pixels::{wgpu::Surface, Error, Pixels, SurfaceTexture};
-use winit::dpi::LogicalSize;
+use std::path::Path;
+use winit::dpi::{LogicalSize, PhysicalPosition};
 use winit::event::{Event, VirtualKeyCode};
 use winit::event_loop::{ControlFlow, EventLoop};
-use winit::window::{WindowBuilder, Icon};
+use winit::window::{Icon, WindowBuilder};
 use winit_input_helper::WinitInputHelper;
-use std::path::Path;
 extern crate image;
 
 mod automata;
 
-fn get_mouse_index(
+fn mouse_index(
     input: &mut WinitInputHelper,
     pixels: &mut Pixels,
     width: usize,
 ) -> Option<usize> {
     input
         .mouse()
-        .and_then(|(mx, my)| winit::dpi::PhysicalPosition::new(mx, my).into())
-        .and_then(|pos| pixels.window_pos_to_pixel((pos.x, pos.y)).ok())
+        .map(|(x, y)| PhysicalPosition::new(x, y).into())
+        .map(|(x, y)| {
+            pixels
+                .window_pos_to_pixel((x, y))
+                .unwrap_or_else(|pos| pixels.clamp_pixel_pos(pos))
+        })
         .map(|(x, y)| automata::utils::coords_to_index(x, y, width))
 }
 
-fn load_icon(path: &Path) -> Icon {
-    let (icon_rgba, icon_width, icon_height) = {
-        let image = image::open(path)
-            .expect("Failed to open icon path")
-            .into_rgba();
-        let (width, height) = image.dimensions();
-        let rgba = image.into_raw();
-        (rgba, width, height)
-    };
-    Icon::from_rgba(icon_rgba, icon_width, icon_height).expect("Failed to open icon")
+fn load_icon(path: &Path) -> Option<Icon> {
+    image::open(path).ok()
+        .map(|image| image.into_rgba())
+        .and_then(|image| {
+            let (width, height) = image.dimensions();
+            let rgba = image.into_raw();
+            Icon::from_rgba(rgba, width, height).ok()
+        })
 }
 
 #[derive(Clap)]
@@ -56,19 +58,15 @@ struct Opts {
 fn main() -> Result<(), Error> {
     env_logger::init();
 
-    let opts: Opts = Opts::parse();
-    let width = opts.width;
-    let height = opts.height;
+    let Opts { width, height } = Opts::parse();
 
     let event_loop = EventLoop::new();
-    let mut input = WinitInputHelper::new();
-
     let icon = load_icon(Path::new("./icon.png"));
     let window = {
         let size = LogicalSize::new(width as f64, width as f64);
         WindowBuilder::new()
             .with_title("Cellular Automata")
-            .with_window_icon(Some(icon))
+            .with_window_icon(icon)
             .with_inner_size(size)
             .with_min_inner_size(size)
             .build(&event_loop)
@@ -81,6 +79,8 @@ fn main() -> Result<(), Error> {
         let surface_texture = SurfaceTexture::new(window_size.width, window_size.height, surface);
         Pixels::new(width as u32, height as u32, surface_texture)?
     };
+
+    let mut input = WinitInputHelper::new();
     let mut world = automata::World::new(width, height);
 
     event_loop.run(move |event, _, control_flow| {
@@ -111,19 +111,19 @@ fn main() -> Result<(), Error> {
             }
 
             if input.mouse_held(0) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels, width) {
+                if let Some(index) = mouse_index(&mut input, &mut pixels, width) {
                     world.set_cell_state(index, automata::State::ALIVE);
                 }
             }
 
             if input.mouse_held(1) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels, width) {
+                if let Some(index) = mouse_index(&mut input, &mut pixels, width) {
                     world.set_cell_state(index, automata::State::DEAD);
                 }
             }
 
             if input.mouse_held(2) {
-                if let Some(index) = get_mouse_index(&mut input, &mut pixels, width) {
+                if let Some(index) = mouse_index(&mut input, &mut pixels, width) {
                     world.set_cell_state(index, automata::State::IMMUTABLE);
                 }
             }
