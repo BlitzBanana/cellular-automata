@@ -12,15 +12,14 @@ pub mod utils {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum State {
-    IMMUTABLE,
     ALIVE,
     DEAD,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Position {
-    pub x: usize,
-    pub y: usize,
+    x: usize,
+    y: usize,
 }
 
 impl Position {
@@ -114,31 +113,20 @@ impl World {
             .cells
             .par_iter()
             .map(|&cell| {
-                match cell.state {
-                    State::IMMUTABLE => cell,
-                    State::ALIVE | State::DEAD => {
-                        let alive_neighbours = cell
-                            .neighbours_indexes
-                            .iter()
-                            .map(|&index| self.cells[index])
-                            .filter(|cell| cell.state == State::ALIVE)
-                            .count();
+                let alive_neighbours = cell
+                    .neighbours_indexes
+                    .iter()
+                    .map(|&index| self.cells[index])
+                    .filter(|cell| cell.state == State::ALIVE)
+                    .count();
 
-                        // Let's update cell state :D (Conway's rules here)
-                        let new_state = if alive_neighbours == 2 {
-                            cell.state
-                        } else if alive_neighbours == 3 {
-                            State::ALIVE
-                        } else {
-                            State::DEAD
-                        };
+                let state = match alive_neighbours {
+                    3 => State::ALIVE,
+                    2 => cell.state,
+                    _ => State::DEAD,
+                };
 
-                        Cell {
-                            state: new_state,
-                            ..cell
-                        }
-                    }
-                }
+                Cell { state, ..cell }
             })
             .collect();
 
@@ -149,7 +137,6 @@ impl World {
     pub fn draw(&self, frame: &mut [u8]) {
         for (i, pixel) in frame.chunks_exact_mut(4).enumerate() {
             let rgba: [u8; 4] = match self.cells[i].state {
-                State::IMMUTABLE => [0xFF, 0x0, 0x4D, 0xFF],
                 State::ALIVE => [0x1E, 0x1E, 0x1E, 0xFF],
                 State::DEAD => [0xF8, 0xF8, 0xF8, 0xF8],
             };

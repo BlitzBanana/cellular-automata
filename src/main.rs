@@ -14,11 +14,7 @@ extern crate image;
 
 mod automata;
 
-fn mouse_index(
-    input: &mut WinitInputHelper,
-    pixels: &mut Pixels,
-    width: usize,
-) -> Option<usize> {
+fn mouse_index(input: &mut WinitInputHelper, pixels: &mut Pixels, width: usize) -> Option<usize> {
     input
         .mouse()
         .map(|(x, y)| PhysicalPosition::new(x, y).into())
@@ -31,7 +27,8 @@ fn mouse_index(
 }
 
 fn load_icon(path: &Path) -> Option<Icon> {
-    image::open(path).ok()
+    image::open(path)
+        .ok()
         .map(|image| image.into_rgba())
         .and_then(|image| {
             let (width, height) = image.dimensions();
@@ -119,12 +116,6 @@ fn main() -> Result<(), Error> {
             if input.mouse_held(1) {
                 if let Some(index) = mouse_index(&mut input, &mut pixels, width) {
                     world.set_cell_state(index, automata::State::DEAD);
-                }
-            }
-
-            if input.mouse_held(2) {
-                if let Some(index) = mouse_index(&mut input, &mut pixels, width) {
-                    world.set_cell_state(index, automata::State::IMMUTABLE);
                 }
             }
 
